@@ -23,7 +23,11 @@ char* get_ui_value(char* label) {
 void get_details(char* details, char* state) {
     char* artist = get_ui_value("info_usr/artist_selected_usr");
     char* title = get_ui_value("info_usr/title_selected_usr");
+    bool songInfoIsAvailable = artist != NULL && title != NULL;
     bool isInSongState = false;
+
+    state[0] = '\0';
+    details[0] = '\0';
 
     // Get presence info by state
     switch(MemoryData.GameState) {
@@ -62,35 +66,46 @@ void get_details(char* details, char* state) {
         case STATE_LOADING:
             strcpy(details, "Loading screen");
             break;
-        default:
-            strcpy(details, "");
     }
 
-    // Update state
-    bool songInfoIsAvailable = artist != NULL && title != NULL;
-
     if (isInSongState && songInfoIsAvailable) {
-        sprintf(
-            state, 
-            "%s - %s", 
-            artist, 
-            title
-        );
-    } else {
-        strcpy(state, "");
+        sprintf(state, "%s - %s", artist, title);
     }
 }
 
-int main(int argc, char **argv) {
+
+static void print_seperator() {
+    printf("--------------------------\n");
+}
+
+static void attach_svdx() {
     while (!memory_reader_init()) {
         Sleep(1000);
-        printf("--------------------------\n");
+        print_seperator();
     }
-    while (!discord_connect("1032756213445836801", on_dispatch)) {
-        Sleep(1000);
-        printf("--------------------------\n");
-    }
+}
 
+static void getDiscordClientId(char * discordClientId) {
+    char *envVarName = "SDVX_DISCORD_RPC_CLIENT_ID";
+    
+    char *envVarValue = getenv(envVarName);
+
+    if (envVarValue) {
+        strcpy(discordClientId, envVarValue);
+    }
+}
+
+static void attach_discord() {
+    char discordClientId[20] = "1032756213445836801";
+    getDiscordClientId(discordClientId);
+
+    while (!discord_connect(discordClientId, on_dispatch)) {
+        Sleep(1000);
+        print_seperator();
+    }
+}
+
+static int do_discord_update_loop() {
     DWORD pid = memory_reader_process_id();
     unsigned long long createdAt = time(NULL);
     unsigned long long tsStart = time(NULL);
@@ -125,4 +140,11 @@ int main(int argc, char **argv) {
     }
     if (!memory_reader_cleanup()) return 1;
     return 0;
+}
+
+int main(int argc, char **argv) {
+    attach_svdx();
+    attach_discord();
+    
+    return do_discord_update_loop();
 }
