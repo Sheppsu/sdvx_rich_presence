@@ -23,59 +23,62 @@ char* get_ui_value(char* label) {
 void get_details(char* details, char* state) {
     char* artist = get_ui_value("info_usr/artist_selected_usr");
     char* title = get_ui_value("info_usr/title_selected_usr");
+    bool isInSongState = false;
+
+    // Get presence info by state
     switch(MemoryData.GameState) {
         case STATE_MUSIC_SELECT:
             strcpy(details, "Song selection");
-            goto blank_state;
+            break;
         case STATE_STAGE:
             strcpy(details, "Currently playing");
-            if (artist == NULL || title == NULL) {
-                goto blank_state;
-            }
-            goto song_state;
+            isInSongState = true;
+            break;
         case STATE_RESULTS:
             strcpy(details, "Results screen");
-            if (artist == NULL || title == NULL) {
-                goto blank_state;
-            }
-            goto song_state;
+            isInSongState = true;
+            break;
         case STATE_TITLE:
             strcpy(details, "Title screen");
-            goto blank_state;
+            break;
         case STATE_COURSE_SELECT:
             strcpy(details, "Course select");
-            goto blank_state;
+            break;
         case STATE_COURSE_RESULT:
             strcpy(details, "Course result");
-            goto blank_state;
+            break;
         case STATE_MODE_SELECT:
             strcpy(details, "Mode select");
-            goto blank_state;
+            break;
         case STATE_MENU_SELECT:
             strcpy(details, "Menu select");
-            goto blank_state;
+            break;
         case STATE_ENTRY:
             strcpy(details, "Entry screen");
-            goto blank_state;
+            break;
         case STATE_STARTUP:
             strcpy(details, "Startup screen");
-            goto blank_state;
+            break;
         case STATE_LOADING:
             strcpy(details, "Loading screen");
-            goto blank_state;
+            break;
         default:
             strcpy(details, "");
     }
-blank_state:
-    strcpy(state, "");
-    return;
-song_state:
-    sprintf(
-        state, 
-        "%s - %s", 
-        artist, 
-        title
-    );
+
+    // Update state
+    bool songInfoIsAvailable = artist != NULL && title != NULL;
+
+    if (isInSongState && songInfoIsAvailable) {
+        sprintf(
+            state, 
+            "%s - %s", 
+            artist, 
+            title
+        );
+    } else {
+        strcpy(state, "");
+    }
 }
 
 int main(int argc, char **argv) {
