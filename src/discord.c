@@ -132,9 +132,9 @@ void handle_event(int opcode, JSON_DICT jsonDict) {
 
 bool discord_connect(char* clientId, void (*callback)()) {
     dispatchCallback = callback;
-    printf("Opening connection\n");
+    printf("Opening discord connection\n");
     if (!open_connection()) return false;
-    printf("Doing handshake\n");
+    printf("Doing discord handshake\n");
     if (!handshake(clientId)) return false;
     return true;
 }

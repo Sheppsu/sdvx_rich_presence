@@ -20,87 +20,104 @@ char* get_ui_value(char* label) {
     return NULL;
 }
 
-void get_details(char* details) {
+void get_details(char* details, char* state) {
     char* artist = get_ui_value("info_usr/artist_selected_usr");
     char* title = get_ui_value("info_usr/title_selected_usr");
     switch(MemoryData.GameState) {
         case STATE_MUSIC_SELECT:
             strcpy(details, "Song selection");
-            break;
+            goto blank_state;
         case STATE_STAGE:
+            strcpy(details, "Currently playing");
             if (artist == NULL || title == NULL) {
-                strcpy(details, "Currently playing ...");
-            } else {
-                sprintf(
-                    details, 
-                    "Currently playing %s - %s", 
-                    artist, 
-                    title
-                );
+                goto blank_state;
             }
-            break;
+            goto song_state;
         case STATE_RESULTS:
+            strcpy(details, "Results screen");
             if (artist == NULL || title == NULL) {
-                strcpy(details, "Results screen ...");
-            } else {
-                sprintf(
-                    details, 
-                    "Results screen: %s - %s", 
-                    artist, 
-                    title
-                );
+                goto blank_state;
             }
-            break;
+            goto song_state;
         case STATE_TITLE:
             strcpy(details, "Title screen");
-            break;
+            goto blank_state;
         case STATE_COURSE_SELECT:
             strcpy(details, "Course select");
-            break;
+            goto blank_state;
         case STATE_COURSE_RESULT:
             strcpy(details, "Course result");
-            break;
+            goto blank_state;
         case STATE_MODE_SELECT:
             strcpy(details, "Mode select");
-            break;
+            goto blank_state;
         case STATE_MENU_SELECT:
             strcpy(details, "Menu select");
-            break;
+            goto blank_state;
         case STATE_ENTRY:
             strcpy(details, "Entry screen");
-            break;
+            goto blank_state;
         case STATE_STARTUP:
             strcpy(details, "Startup screen");
-            break;
+            goto blank_state;
         case STATE_LOADING:
             strcpy(details, "Loading screen");
-            break;
+            goto blank_state;
         default:
             strcpy(details, "");
     }
+blank_state:
+    strcpy(state, "");
+    return;
+song_state:
+    sprintf(
+        state, 
+        "%s - %s", 
+        artist, 
+        title
+    );
 }
 
 int main(int argc, char **argv) {
-    if (!memory_reader_init()) return 1;
-    if (!discord_connect("1032756213445836801", on_dispatch)) return 1;
+    while (!memory_reader_init()) {
+        Sleep(1000);
+        printf("--------------------------\n");
+    }
+    while (!discord_connect("1032756213445836801", on_dispatch)) {
+        Sleep(1000);
+        printf("--------------------------\n");
+    }
 
     DWORD pid = memory_reader_process_id();
     unsigned long long createdAt = time(NULL);
     unsigned long long tsStart = time(NULL);
     char details[1024];
+    char state[1024];
 
     char activityJson[1024];
     while (discord_update()) {
         Sleep(100);
         if (!memory_reader_update()) return 1;
         if (!isConnected) continue;
-        get_details(details);
-        sprintf(
-            activityJson, 
-            "{\"type\": 0, \"timestamps\": {\"start\": %d}, \"details\": \"%s\", \"assets\": {\"large_image\": \"sdvx\"}}",
-            tsStart,
-            details
-        );
+        get_details(details, state);
+
+        if (strlen(state) != 0) {
+            sprintf(
+                activityJson, 
+                "{\"type\": 0, \"timestamps\": {\"start\": %d}, \"details\": \"%s\", \"state\": \"%s\", \"assets\": {\"large_image\": \"sdvx\"}}",
+                tsStart,
+                details,
+                state
+            );
+        } else {
+            sprintf(
+                activityJson, 
+                "{\"type\": 0, \"timestamps\": {\"start\": %d}, \"details\": \"%s\", \"assets\": {\"large_image\": \"sdvx\"}}",
+                tsStart,
+                details
+            );
+        }
+        
         if (!discord_set_activity(pid, activityJson)) return 1;
     }
     if (!memory_reader_cleanup()) return 1;
