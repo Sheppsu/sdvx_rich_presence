@@ -11,10 +11,10 @@ void on_dispatch() {
 }
 
 char* get_ui_value(char* label) {
-    for (int i=0; i<26; i++) {
-        UI_OBJECT obj = MemoryData.UiObjects[i];
+    for (int i=0; i<MemoryData.uiObjCount; i++) {
+        UI_OBJECT obj = MemoryData.uiObjects[i];
         if (strcmp(obj.label, label) == 0) {
-            return MemoryData.UiObjects[i].text;
+            return MemoryData.uiObjects[i].text;
         }
     }
     return NULL;
@@ -30,7 +30,7 @@ void get_details(char* details, char* state) {
     details[0] = '\0';
 
     // Get presence info by state
-    switch(MemoryData.GameState) {
+    switch(MemoryData.gameState) {
         case STATE_MUSIC_SELECT:
             strcpy(details, "Song selection");
             break;
