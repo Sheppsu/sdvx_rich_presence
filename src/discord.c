@@ -1,5 +1,5 @@
 #include "discord.h"
-#include "json.h"
+#include "cJSON.h"
 #include <stdio.h>
 #include <stdbool.h>
 #include <windows.h>
@@ -26,8 +26,8 @@ bool peek_pipe(DWORD* bytesAvailable) {
     return true;
 }
 
-bool read_file(char* buf, DWORD readSize) {
-    if (!ReadFile(ipcHandle, buf, readSize, NULL, NULL)) {
+bool read_file(char* buf, DWORD readSize, LPDWORD bytesRead) {
+    if (!ReadFile(ipcHandle, buf, readSize, bytesRead, NULL)) {
         printf("ReadFile failed with error code %d", GetLastError());
         return false;
     }
@@ -117,14 +117,16 @@ bool handshake(char* clientId) {
     return true;
 }
 
-void handle_event(int opcode, JSON_DICT jsonDict) {
-    for (int i=0; i<jsonDict.numItems; i++) {
-        JSON_DICT_PAIR pair = jsonDict.items[i];
-        if (strcmp(pair.key, "cmd") == 0 && strcmp(pair.value.value, get_cmd_str(CMD_DISPATCH)) == 0) {
+void handle_event(int opcode, cJSON* json) {
+    cJSON *entry = json->child;
+    while (entry != NULL) {
+        if (strcmp(entry->string, "cmd") == 0 && strcmp(entry->valuestring, get_cmd_str(CMD_DISPATCH)) == 0) {
             (*dispatchCallback)();
             return;
         }
+        entry = entry->next;
     }
+
     // TODO: callback based on nonce
 }
 
@@ -142,25 +144,25 @@ bool discord_connect(char* clientId, void (*callback)()) {
 bool discord_update() {
     DWORD bytesAvailable = 0;
     if (!peek_pipe(&bytesAvailable)) return false;
-    if (bytesAvailable == 0) return true;
+    if (bytesAvailable < 8) return true;
 
     char* buf = malloc(bytesAvailable+1);
-    read_file(buf, bytesAvailable);
+    DWORD bytesRead;
+    read_file(buf, bytesAvailable, &bytesRead);
 
     int size = 0;
-    while (size < bytesAvailable) {
+    while (size < bytesRead) {
         int opcode = *(int*)(buf+size);
         int length = *((int*)(buf+size+4));
-        JSON_DICT jsonDict;
-        int jsonLength;
 
-        // char printJson[1024];
-        // memcpy(printJson, buf+size+8, length);
-        // printJson[length] = '\0';
+        cJSON *json = cJSON_ParseWithLength(buf+size+8, length);
+        if (json == NULL) {
+            cJSON_Delete(json);
+            return false;
+        }
 
-        if (!json_dict_from_string(buf+size+8, &jsonDict, &jsonLength)) return false;
-        handle_event(opcode, jsonDict);
-        json_free_dict(&jsonDict);
+        handle_event(opcode, json);
+        cJSON_Delete(json);
         size += (8+length);
     }
 
@@ -168,11 +170,25 @@ bool discord_update() {
     return true;
 }
 
-bool discord_set_activity(DWORD pid, char* activityJson) {
-    char json[1024];
+bool discord_set_activity(DWORD pid, cJSON* activity) {
+    cJSON* packet = cJSON_CreateObject();
+    cJSON_AddStringToObject(packet, "cmd", get_cmd_str(CMD_SET_ACTIVITY));
+    cJSON* args = cJSON_AddObjectToObject(packet, "args");
+    cJSON_AddNumberToObject(args, "pid", pid);
+    cJSON_AddItemToObject(args, "activity", activity);
     char nonce[17];
     generate_nonce(nonce);
-    sprintf(json, "{\"cmd\": \"%s\", \"args\": {\"pid\": %d, \"activity\": %s}, \"nonce\": \"%s\"}", get_cmd_str(CMD_SET_ACTIVITY), pid, activityJson, nonce);
-    if (!send_json(OC_FRAME, json)) return false;
+    cJSON_AddStringToObject(packet, "nonce", nonce);
+
+    char* json = cJSON_PrintUnformatted(packet);
+    
+    if (!send_json(OC_FRAME, json)) {
+        cJSON_free(json);
+        cJSON_Delete(packet);
+        return false;
+    }
+    cJSON_free(json);
+    cJSON_Delete(packet);
+
     return true;
 }

@@ -5,7 +5,7 @@ import os
 library = [
     "src/sdvx_memory_reader/src/memory_reader.c",
     "src/sdvx_memory_reader/src/decode.c",
-    "src/json.c",
+    "src/cJSON.c",
     "src/discord.c",
     "src/rich_presence.c"
 ]

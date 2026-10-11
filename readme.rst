@@ -1,7 +1,3 @@
-IMPORTANT NOTE
-##############
-Currently does not work because of an update to the game. I don't have the motivation right now to find the new offsets, but hopefully I'll get around to it at some point.
-
 SDVX Rich Presence
 ##################
 Discord rich presence program for Sound Voltex Exceed Gear.

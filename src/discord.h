@@ -3,6 +3,7 @@
 
 #include <windows.h>
 #include <stdbool.h>
+#include "cJSON.h"
 
 // Constants
 
@@ -52,6 +53,6 @@ extern HANDLE ipcHandle;
 
 bool discord_connect(char* clientId, void (*callback)());
 bool discord_update();
-bool discord_set_activity(DWORD pid, char* activityJson);
+bool discord_set_activity(DWORD pid, cJSON* activity);
 
 #endif /* DISCORD_H */

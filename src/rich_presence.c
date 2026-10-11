@@ -1,5 +1,6 @@
 #include "sdvx_memory_reader/src/memory_reader.h"
 #include "discord.h"
+#include "cJSON.h"
 #include <stdio.h>
 #include <time.h>
 
@@ -7,23 +8,10 @@ bool isConnected = false;
 
 void on_dispatch() {
     isConnected = true;
-    printf("Handshake complete\nIf you see a \"Memory read failed with error code 299\" but the program hasn't stopped, you can just ignore it. Happens in between transitioning states.\n");
-}
-
-char* get_ui_value(char* label) {
-    for (int i=0; i<MemoryData.uiObjCount; i++) {
-        UI_OBJECT obj = MemoryData.uiObjects[i];
-        if (strcmp(obj.label, label) == 0) {
-            return MemoryData.uiObjects[i].text;
-        }
-    }
-    return NULL;
+    printf("Handshake complete\nIf you see a \"Memory read failed with error code 299\" but the program hasn't stopped, you can just ignore it. It may happen in between transitioning states.\n");
 }
 
 void get_details(char* details, char* state) {
-    char* artist = get_ui_value("info_usr/artist_selected_usr");
-    char* title = get_ui_value("info_usr/title_selected_usr");
-    bool songInfoIsAvailable = artist != NULL && title != NULL;
     bool isInSongState = false;
 
     state[0] = '\0';
@@ -31,45 +19,39 @@ void get_details(char* details, char* state) {
 
     // Get presence info by state
     switch(MemoryData.gameState) {
-        case STATE_MUSIC_SELECT:
+        case MUSICSELECT:
             strcpy(details, "Song selection");
             break;
-        case STATE_STAGE:
+        case ALTERNATIVE_GAME_SCENE:
             strcpy(details, "Currently playing");
             isInSongState = true;
             break;
-        case STATE_RESULTS:
+        case RESULT_SCENE:
             strcpy(details, "Results screen");
             isInSongState = true;
             break;
-        case STATE_TITLE:
+        case TITLE_SCENE:
             strcpy(details, "Title screen");
             break;
-        case STATE_COURSE_SELECT:
-            strcpy(details, "Course select");
+        case DEMO_GAME:
+            strcpy(details, "Title screen");
             break;
-        case STATE_COURSE_RESULT:
-            strcpy(details, "Course result");
+        case DEMO_TUTORIAL:
+            strcpy(details, "Tutorial screen");
             break;
-        case STATE_MODE_SELECT:
-            strcpy(details, "Mode select");
+        case TUTORIAL:
+            strcpy(details, "Tutorial screen");
             break;
-        case STATE_MENU_SELECT:
-            strcpy(details, "Menu select");
-            break;
-        case STATE_ENTRY:
-            strcpy(details, "Entry screen");
-            break;
-        case STATE_STARTUP:
-            strcpy(details, "Startup screen");
-            break;
-        case STATE_LOADING:
-            strcpy(details, "Loading screen");
+        case BOOT:
+            strcpy(details, "Boot screen");
             break;
     }
 
-    if (isInSongState && songInfoIsAvailable) {
-        sprintf(state, "%s - %s", artist, title);
+    if (isInSongState) {
+        MUSIC_ENTRY* entry = memory_reader_get_currently_playing();
+        if (entry != NULL) {
+            sprintf(state, "%s - %s", entry->artistName, entry->titleName);
+        }
     }
 }
 
@@ -112,31 +94,24 @@ static int do_discord_update_loop() {
     char details[1024];
     char state[1024];
 
-    char activityJson[1024];
     while (discord_update()) {
         Sleep(100);
         if (!memory_reader_update()) return 1;
         if (!isConnected) continue;
         get_details(details, state);
 
+        cJSON* activity = cJSON_CreateObject();
+        cJSON_AddNumberToObject(activity, "type", 0);
+        cJSON* timestamp = cJSON_AddObjectToObject(activity, "timestamp");
+        cJSON_AddNumberToObject(timestamp, "start", (double)tsStart);
+        cJSON_AddStringToObject(activity, "details", details);
         if (strlen(state) != 0) {
-            sprintf(
-                activityJson, 
-                "{\"type\": 0, \"timestamps\": {\"start\": %d}, \"details\": \"%s\", \"state\": \"%s\", \"assets\": {\"large_image\": \"sdvx\"}}",
-                tsStart,
-                details,
-                state
-            );
-        } else {
-            sprintf(
-                activityJson, 
-                "{\"type\": 0, \"timestamps\": {\"start\": %d}, \"details\": \"%s\", \"assets\": {\"large_image\": \"sdvx\"}}",
-                tsStart,
-                details
-            );
+            cJSON_AddStringToObject(activity, "state", state);
         }
-        
-        if (!discord_set_activity(pid, activityJson)) return 1;
+        cJSON* assets = cJSON_AddObjectToObject(activity, "assets");
+        cJSON_AddStringToObject(assets, "large_image", "sdvx");
+
+        if (!discord_set_activity(pid, activity)) return 1;
     }
     if (!memory_reader_cleanup()) return 1;
     return 0;
