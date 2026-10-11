@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <time.h>
 
+#define PROGRAM_VERSION "v2.1"
+
 bool isConnected = false;
 
 void on_dispatch() {
@@ -45,12 +47,35 @@ void get_details(char* details, char* state) {
         case BOOT:
             strcpy(details, "Boot screen");
             break;
+		default: {
+            char* name = MemoryData.gameStateName;
+            size_t nameLen = strlen(name);
+            details[nameLen] = '\0';
+
+            bool caps = true;
+            for (int i=0; i<nameLen; i++) {
+                // captialize letter after space + replace underscores with spaces
+                if (name[i] == '_' || name[i] == ' ') {
+                    details[i] = ' ';
+                    caps = true;
+                    continue;
+                }
+
+                if (caps) {
+                    details[i] = name[i];
+                    caps = false;
+                } else {
+                    details[i] = tolower(name[i]);
+                }
+            }
+        }
     }
+
 
     if (isInSongState) {
         MUSIC_ENTRY* entry = memory_reader_get_currently_playing();
         if (entry != NULL) {
-            sprintf(state, "%s - %s", entry->artistName, entry->titleName);
+            sprintf(state, "%s - %s [Level %d]", entry->artistName, entry->titleName, entry->level[MemoryData.currentlyPlayingDifficulty]+1);
         }
     }
 }
@@ -118,6 +143,8 @@ static int do_discord_update_loop() {
 }
 
 int main(int argc, char **argv) {
+    printf("Running version %s\n", PROGRAM_VERSION);
+
     attach_svdx();
     attach_discord();
     
