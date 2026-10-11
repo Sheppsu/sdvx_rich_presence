@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <time.h>
 
-#define PROGRAM_VERSION "v2.1"
+#define PROGRAM_VERSION "v2.2"
 
 bool isConnected = false;
 
